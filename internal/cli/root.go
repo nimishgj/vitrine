@@ -32,6 +32,7 @@ func newRoot() *cobra.Command {
 		},
 	})
 	root.AddCommand(newProbeCmd())
+	root.AddCommand(platformCommands()...)
 	return root
 }
 
