@@ -1,0 +1,4 @@
+/vitrine
+/dist/
+*.test
+coverage.out
