@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,6 +11,11 @@ import (
 
 // Version is set at build time via -ldflags.
 var Version = "dev"
+
+// exitError carries a specific exit code out of a RunE.
+type exitError struct{ code int }
+
+func (e exitError) Error() string { return fmt.Sprintf("exit %d", e.code) }
 
 func newRoot() *cobra.Command {
 	root := &cobra.Command{
@@ -25,6 +31,7 @@ func newRoot() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), Version)
 		},
 	})
+	root.AddCommand(newProbeCmd())
 	return root
 }
 
@@ -33,6 +40,10 @@ func Execute(args []string) int {
 	root := newRoot()
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
+		var ee exitError
+		if errors.As(err, &ee) {
+			return ee.code
+		}
 		fmt.Fprintln(os.Stderr, "vitrine:", err)
 		return 1
 	}
