@@ -12,7 +12,11 @@ import (
 
 func testEnv(t *testing.T) *env {
 	t.Helper()
-	home := t.TempDir()
+	// Resolve symlinks (macOS /var -> /private/var) so canonical paths match.
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	l := paths.Resolve(home)
 	exe := filepath.Join(home, "vitrine")
 	os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755)

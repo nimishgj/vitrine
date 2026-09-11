@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/nimishgj/vitrine/internal/profile"
 )
 
 // Version is set at build time via -ldflags.
@@ -32,17 +34,29 @@ func newRoot(e *env) *cobra.Command {
 		},
 	})
 	root.AddCommand(newInitCmd(e))
+	root.AddCommand(newRunCmd(e))
 	root.AddCommand(newProbeCmd())
 	root.AddCommand(platformCommands()...)
 	return root
 }
 
-// Execute runs the CLI with args (excluding argv[0]) and returns the exit code.
-func Execute(args []string) int {
+// Execute runs the CLI. When argv0 is one of the agent shims, the whole
+// invocation is a sandboxed launch of that agent.
+func Execute(argv0 string, args []string) int {
 	e, err := loadEnv()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "vitrine:", err)
 		return 1
+	}
+	if name, ok := profile.FromArgv0(argv0); ok {
+		code, err := runSession(e, name, args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "vitrine:", err)
+			if code == 0 {
+				code = 1
+			}
+		}
+		return code
 	}
 	root := newRoot(e)
 	root.SetArgs(args)
