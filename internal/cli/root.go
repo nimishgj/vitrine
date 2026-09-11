@@ -17,7 +17,7 @@ type exitError struct{ code int }
 
 func (e exitError) Error() string { return fmt.Sprintf("exit %d", e.code) }
 
-func newRoot() *cobra.Command {
+func newRoot(e *env) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "vitrine",
 		Short:         "Run coding agents with read-only access to everything",
@@ -31,6 +31,7 @@ func newRoot() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), Version)
 		},
 	})
+	root.AddCommand(newInitCmd(e))
 	root.AddCommand(newProbeCmd())
 	root.AddCommand(platformCommands()...)
 	return root
@@ -38,7 +39,12 @@ func newRoot() *cobra.Command {
 
 // Execute runs the CLI with args (excluding argv[0]) and returns the exit code.
 func Execute(args []string) int {
-	root := newRoot()
+	e, err := loadEnv()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "vitrine:", err)
+		return 1
+	}
+	root := newRoot(e)
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
 		var ee exitError
