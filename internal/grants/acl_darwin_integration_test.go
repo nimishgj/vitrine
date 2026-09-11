@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nimishgj/vitrine/internal/paths"
 	"github.com/nimishgj/vitrine/internal/sysuser"
 )
 
@@ -30,6 +31,11 @@ func TestApplyAndRemoveACL(t *testing.T) {
 	defer os.RemoveAll(base)
 	me, _ := exec.Command("id", "-un").Output()
 	engineer := strings.TrimSpace(string(me))
+	// The engineer's real grants on this machine share the home ancestor;
+	// treat them as remaining so the test never strips an entry they need.
+	l, _ := paths.Default()
+	real, _ := Load(l.Grants)
+	remaining := func(extra ...Grant) []Grant { return append(append([]Grant{}, real.Grants...), extra...) }
 
 	g := Grant{Path: repo, Mode: ModeWrite}
 	if err := ApplyACL(g, home, engineer); err != nil {
@@ -51,13 +57,32 @@ func TestApplyAndRemoveACL(t *testing.T) {
 		t.Error("recursive ACE missing on sub")
 	}
 
-	if err := RemoveACL(g, home, nil); err != nil {
+	// A second grant that shares the home ancestor must keep home traversable
+	// after the first grant is removed.
+	other := filepath.Join(base, "other")
+	os.MkdirAll(other, 0o755)
+	og := Grant{Path: other, Mode: ModeRead}
+	if err := ApplyACL(og, home, engineer); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveACL(g, home, remaining(og)); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(aces(t, repo), "user:vitrine") {
 		t.Errorf("ACE not removed:\n%s", aces(t, repo))
 	}
+	for _, keep := range []string{home, base} {
+		if !strings.Contains(aces(t, keep), "user:vitrine allow search") {
+			t.Errorf("ancestor %s lost its search ACE while another grant still needs it:\n%s", keep, aces(t, keep))
+		}
+	}
 	if strings.Contains(aces(t, filepath.Join(base, "proj")), "user:vitrine") {
+		t.Error("ancestor unique to the removed grant should lose its search ACE")
+	}
+	if err := RemoveACL(og, home, remaining()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(aces(t, base), "user:vitrine") {
 		t.Error("ancestor search ACE not removed when no grants remain")
 	}
 }

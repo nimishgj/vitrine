@@ -9,20 +9,26 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/nimishgj/vitrine/internal/grants"
+	"github.com/nimishgj/vitrine/internal/paths"
 	"github.com/nimishgj/vitrine/internal/probe"
 	"github.com/nimishgj/vitrine/internal/sandbox"
 	"github.com/nimishgj/vitrine/internal/sysuser"
 )
 
-func ace(user, perms string) string { return "user:" + user + " allow " + perms }
-
 // Requires: sudo vitrine init already run on this machine (creates the user,
-// sudoers rule and /var/lib/vitrine/sessions).
+// sudoers rule and /var/lib/vitrine/sessions). The sudoers rule names one
+// binary, so VITRINE_BIN must point at that installed binary; otherwise the
+// test builds a fresh one, which the rule will not accept, and skips.
 func TestProbeUnderSeatbelt(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	bin := buildVitrine(t)
+	bin := os.Getenv("VITRINE_BIN")
+	if bin == "" {
+		bin = buildVitrine(t)
+	}
 	b := New(home)
 	b.VitrineBin = bin
 	if err := b.Available(); err != nil {
@@ -48,18 +54,23 @@ func TestProbeUnderSeatbelt(t *testing.T) {
 	rg := filepath.Join(root, "rg")
 	mk("rg/readme", "hi")
 
-	// The vitrine user needs ACLs to traverse into root and use the grants.
-	// This mirrors what grants.ApplyACL does for real grants.
-	const readPerms = "read,readattr,readextattr,readsecurity,list,search,execute"
-	const writePerms = readPerms + ",write,append,delete,add_file,add_subdirectory,delete_child,writeattr,writeextattr"
-	for _, p := range []string{home, root} {
-		if out, err := exec.Command("chmod", "+a", ace(sysuser.Name, "search"), p).CombinedOutput(); err != nil {
-			t.Fatalf("chmod +a on %s: %v %s", p, err, out)
+	// Use the real grant ACL code so the vitrine user can traverse and use
+	// the grants and the engineer can read what the agent writes. Cleanup
+	// passes the engineer's real grants as remaining so shared ancestor
+	// entries (the home directory) survive.
+	engineer, _ := exec.Command("id", "-un").Output()
+	eng := strings.TrimSpace(string(engineer))
+	l, _ := paths.Default()
+	realGrants, _ := grants.Load(l.Grants)
+	wGrant := grants.Grant{Path: wg, Mode: grants.ModeWrite}
+	rGrant := grants.Grant{Path: rg, Mode: grants.ModeRead}
+	for _, g := range []grants.Grant{wGrant, rGrant} {
+		if err := grants.ApplyACL(g, home, eng); err != nil {
+			t.Fatal(err)
 		}
 	}
-	defer exec.Command("chmod", "-a", ace(sysuser.Name, "search"), home).Run()
-	exec.Command("chmod", "-R", "+a", ace(sysuser.Name, readPerms+",file_inherit,directory_inherit"), rg).Run()
-	exec.Command("chmod", "-R", "+a", ace(sysuser.Name, writePerms+",file_inherit,directory_inherit"), wg).Run()
+	defer grants.RemoveACL(rGrant, home, realGrants.Grants)
+	defer grants.RemoveACL(wGrant, home, append(realGrants.Grants, rGrant))
 
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer ln.Close()
@@ -73,9 +84,6 @@ func TestProbeUnderSeatbelt(t *testing.T) {
 		}
 	}()
 
-	// The vitrine user must be able to execute the test binary.
-	exec.Command("chmod", "+a", ace(sysuser.Name, "read,execute,search"), filepath.Dir(bin)).Run()
-	exec.Command("chmod", "+a", ace(sysuser.Name, "read,execute"), bin).Run()
 	os.Setenv("VITRINE_CANARY", "1")
 
 	agentHome := sysuser.AgentHome("itest")

@@ -47,6 +47,6 @@ jobs:
           go build -o /usr/local/bin/vitrine ./cmd/vitrine
           sudo /usr/local/bin/vitrine init
       - run: sudo go test -tags integration ./internal/sysuser/ -v
-      - run: go test -tags integration ./internal/sandbox/darwin/ ./internal/grants/ -v
+      - run: VITRINE_BIN=/usr/local/bin/vitrine go test -tags integration ./internal/sandbox/darwin/ ./internal/grants/ -v
       - name: doctor end to end
         run: vitrine doctor
