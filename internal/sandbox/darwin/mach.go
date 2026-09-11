@@ -9,6 +9,7 @@ package darwin
 func MachServices() []string {
 	return []string{
 		"com.apple.system.logger",
+		"com.apple.logd",
 		"com.apple.system.notification_center",
 		"com.apple.system.opendirectoryd.libinfo",
 		"com.apple.system.opendirectoryd.membership",

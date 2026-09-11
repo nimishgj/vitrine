@@ -60,10 +60,36 @@ func TestProfileInvariants(t *testing.T) {
 	if !strings.Contains(p, "(allow network*)") || !strings.Contains(p, "(allow process-exec*") {
 		t.Fatal("process/network rules")
 	}
+	// Process startup aborts without these two (libSystem init).
+	for _, must := range []string{`(allow file-read-data (literal "/"))`, `(literal "/dev/dtracehelper")`} {
+		if !strings.Contains(p, must) {
+			t.Fatalf("missing startup rule %s", must)
+		}
+	}
 	for _, svc := range MachServices() {
 		if !strings.Contains(p, `(global-name "`+svc+`")`) {
 			t.Fatalf("mach service %s missing", svc)
 		}
+	}
+}
+
+func TestProfileResolvesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real")
+	os.MkdirAll(real, 0o755)
+	link := filepath.Join(dir, "link")
+	os.Symlink(real, link)
+	want, _ := filepath.EvalSymlinks(real)
+
+	s := sampleSpec()
+	s.ReadWrite = []string{link}
+	s.Deny = []string{filepath.Join(link, "missing", ".git", "hooks")} // does not exist yet
+	p := Profile(s)
+	if !strings.Contains(p, `(allow file-read* file-write* (subpath "`+want+`"))`) {
+		t.Fatalf("symlinked write path not resolved:\n%s", p)
+	}
+	if !strings.Contains(p, `(deny file-write* (subpath "`+filepath.Join(want, "missing", ".git", "hooks")+`"))`) {
+		t.Fatalf("missing path not resolved through ancestor:\n%s", p)
 	}
 }
 
