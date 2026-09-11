@@ -9,7 +9,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/nimishgj/vitrine/internal/sandbox"
@@ -43,24 +42,6 @@ func Launch(specPath string, cmd []string) error {
 	}
 	argv := append([]string{"/usr/bin/sandbox-exec", "-f", profilePath}, cmd...)
 	return syscall.Exec(argv[0], argv, sandbox.EnvSlice(spec.Env))
-}
-
-// Adopt chowns dir (recursively) to the vitrine user. Called via sudo.
-func Adopt(dir string) error {
-	if !isVitrineUser() {
-		return errors.New("adopt must run as the vitrine user")
-	}
-	clean := filepath.Clean(dir)
-	if !strings.HasPrefix(clean, sysuser.SessionsDir()+string(filepath.Separator)) {
-		return fmt.Errorf("refusing to adopt %s: outside %s", dir, sysuser.SessionsDir())
-	}
-	uid, gid := os.Getuid(), os.Getgid()
-	return filepath.Walk(clean, func(p string, _ os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		return os.Lchown(p, uid, gid)
-	})
 }
 
 func isVitrineUser() bool {

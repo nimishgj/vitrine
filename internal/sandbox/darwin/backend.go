@@ -40,8 +40,12 @@ func (b *Backend) Available() error {
 	if err := exec.Command("id", "-u", sysuser.Name).Run(); err != nil {
 		return fmt.Errorf("user %q does not exist; run: sudo vitrine init", sysuser.Name)
 	}
-	if err := exec.Command("sudo", "-n", "-u", sysuser.Name, b.VitrineBin, "launch", "--check").Run(); err != nil {
-		return fmt.Errorf("sudo rule for %q missing or stale; run: sudo vitrine init", sysuser.Name)
+	if out, err := exec.Command("sudo", "-n", "-u", sysuser.Name, b.VitrineBin, "launch", "--check").CombinedOutput(); err != nil {
+		msg := strings.TrimSpace(string(out))
+		if strings.Contains(msg, "password is required") {
+			return fmt.Errorf("sudo rule for %q does not cover %s; run: sudo vitrine init", sysuser.Name, b.VitrineBin)
+		}
+		return fmt.Errorf("cannot launch as %q: %s", sysuser.Name, msg)
 	}
 	return nil
 }
@@ -70,7 +74,7 @@ func (b *Backend) Run(ctx context.Context, spec sandbox.Spec, cmd []string) (int
 		return 1, err
 	}
 	f.Close()
-	if err := b.adopt(sessDir); err != nil {
+	if err := shareWithVitrine(sessDir); err != nil {
 		return 1, err
 	}
 
@@ -151,11 +155,29 @@ func copyTree(src, dst string) error {
 	})
 }
 
-// adopt hands sessDir to the vitrine user. The engineer cannot chown to
-// another user without root, so this goes through the same sudo rule using
-// the hidden `launch --adopt` mode, which chowns its argument to itself.
-func (b *Backend) adopt(dir string) error {
-	c := exec.Command("sudo", "-n", "-u", sysuser.Name, b.VitrineBin, "launch", "--adopt", dir)
-	c.Stderr = os.Stderr
-	return c.Run()
+// sessionPerms is the ACL permission set that lets a user fully use a
+// session directory: read the spec and credentials, write the profile and
+// scratch files, and delete what it created.
+const sessionPerms = "read,write,execute,list,search,add_file,add_subdirectory,delete,delete_child," +
+	"readattr,writeattr,readextattr,writeextattr,readsecurity,file_inherit,directory_inherit"
+
+// shareWithVitrine grants the vitrine user access to the session directory
+// the engineer just created. The engineer owns it, so an ACL is enough; no
+// root and no chown are needed. The engineer gets a matching inherited entry
+// so files the agent creates inside scratch can still be removed afterwards.
+func shareWithVitrine(dir string) error {
+	engineer := ""
+	if out, err := exec.Command("id", "-un").Output(); err == nil {
+		engineer = strings.TrimSpace(string(out))
+	}
+	for _, user := range []string{sysuser.Name, engineer} {
+		if user == "" {
+			continue
+		}
+		ace := "user:" + user + " allow " + sessionPerms
+		if out, err := exec.Command("chmod", "-R", "+a", ace, dir).CombinedOutput(); err != nil {
+			return fmt.Errorf("share session dir with %s: %v: %s", user, err, out)
+		}
+	}
+	return nil
 }
