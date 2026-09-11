@@ -140,6 +140,32 @@ func TestRunReadGrantIsReadOnly(t *testing.T) {
 	}
 }
 
+// On macOS the agent home lives under a directory owned by the vitrine user,
+// so the shim (running as the engineer) cannot create it. The backend does.
+func TestRunToleratesUnwritableAgentHomeParent(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permissions")
+	}
+	fp := &fake.Provider{}
+	b := &fakeBackend{}
+	d, home := deps(t, b, fp)
+	locked := filepath.Join(home, "locked")
+	os.MkdirAll(locked, 0o700)
+	os.Chmod(locked, 0o500)
+	t.Cleanup(func() { os.Chmod(locked, 0o700) })
+	d.AgentHome = func(name string) string { return filepath.Join(locked, name, "home") }
+	repo := filepath.Join(home, "repo")
+	os.MkdirAll(repo, 0o755)
+	code, err := Run(context.Background(), d, Request{Profile: profile.Generic("/x"), RealBinary: "/x", Workdir: repo,
+		Grant: grants.Grant{Path: repo, Mode: grants.ModeRead}})
+	if err != nil || code != 0 || !b.ran {
+		t.Fatalf("code %d err %v ran %v", code, err, b.ran)
+	}
+	if b.gotSpec.Home != filepath.Join(locked, "x", "home") {
+		t.Fatalf("home %q", b.gotSpec.Home)
+	}
+}
+
 func TestRunMintFailureAbortsBeforeBackend(t *testing.T) {
 	fp := &fake.Provider{MintErr: errors.New("no creds")}
 	b := &fakeBackend{}

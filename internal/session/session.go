@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,8 +115,12 @@ func Run(ctx context.Context, d Deps, r Request) (int, error) {
 	defer cleanupAll(ctx, ms)
 
 	// Spec.
+	// The Linux backend binds the agent home, so it must exist before launch.
+	// On macOS it lives under a directory owned by the vitrine user and is
+	// created by the launcher running as that user, so a permission error
+	// here is expected and not fatal.
 	home := d.AgentHome(r.Profile.Name)
-	if err := os.MkdirAll(home, 0o700); err != nil {
+	if err := os.MkdirAll(home, 0o700); err != nil && !errors.Is(err, fs.ErrPermission) {
 		return 1, err
 	}
 	gitName, gitEmail := sandbox.GitIdentity(func(args ...string) (string, error) {
