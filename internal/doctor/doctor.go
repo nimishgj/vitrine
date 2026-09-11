@@ -103,7 +103,8 @@ func Run(ctx context.Context, d Deps) ([]probe.Check, error, error) {
 		"--cred-path", cred, "--home", d.Home, "--state-file", l.Grants,
 		"--outside", filepath.Join(root, "outside.txt"),
 		"--write-grant", wg, "--read-grant", rg,
-		"--agent-home", agentHome, "--scratch", scratch,
+		// agent home and scratch are taken from $HOME and $TMPDIR inside
+		// the sandbox, because backends may relocate them.
 		"--symlink", filepath.Join(wg, "escape"),
 		"--canary-env", "VITRINE_CANARY", "--net", ln.Addr().String(),
 		"--out", out,

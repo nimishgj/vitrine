@@ -18,6 +18,14 @@ func newProbeCmd() *cobra.Command {
 		Short:  "Internal: run isolation checks from inside a sandbox",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Default to what the agent itself sees. Backends may relocate
+			// these directories and only the environment reflects that.
+			if p.AgentHome == "" {
+				p.AgentHome = os.Getenv("HOME")
+			}
+			if p.Scratch == "" {
+				p.Scratch = os.Getenv("TMPDIR")
+			}
 			cs := probe.Run(p)
 			b, _ := json.Marshal(cs)
 			if out != "" {

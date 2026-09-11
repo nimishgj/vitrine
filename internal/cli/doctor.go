@@ -34,7 +34,15 @@ func newDoctorCmd(e *env) *cobra.Command {
 			if e.GOOS == "darwin" {
 				agentHome = sysuser.AgentHome
 				apply = func(g grants.Grant) error { return grants.ApplyACL(g, e.Home, e.Engineer) }
-				remove = func(g grants.Grant) error { return grants.RemoveACL(g, e.Home, nil) }
+				// Pass the engineer's real grants so ancestor search entries
+				// they still need (typically on the home directory) survive.
+				remove = func(g grants.Grant) error {
+					s, err := grants.Load(e.Layout.Grants)
+					if err != nil {
+						return err
+					}
+					return grants.RemoveACL(g, e.Home, s.Grants)
+				}
 			}
 			fmt.Fprintf(e.Stdout, "backend: %s\n", b.Name())
 			cs, berr, err := doctor.Run(context.Background(), doctor.Deps{
