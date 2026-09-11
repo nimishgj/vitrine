@@ -85,6 +85,22 @@ func FindRealBinary(name string, pathEnv string, skipDir string) (string, error)
 	return "", errors.New("agent binary " + name + " not found on PATH (outside the vitrine shim directory)")
 }
 
+// InstallRoot returns the directory tree that must be readable inside the
+// sandbox to run realBinary. For a Node package it is the outermost
+// node_modules directory, because dependencies are hoisted beside the
+// package; otherwise it is the binary's own directory.
+func InstallRoot(realBinary string) string {
+	sep := string(filepath.Separator)
+	dir := filepath.Dir(realBinary)
+	parts := strings.Split(dir, sep)
+	for i, p := range parts {
+		if p == "node_modules" {
+			return strings.Join(parts[:i+1], sep)
+		}
+	}
+	return dir
+}
+
 func isExec(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir() && st.Mode().Perm()&0o111 != 0

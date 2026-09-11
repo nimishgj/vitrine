@@ -35,6 +35,20 @@ func TestFromArgv0(t *testing.T) {
 	}
 }
 
+func TestInstallRoot(t *testing.T) {
+	cases := map[string]string{
+		"/Users/u/.local/share/claude/versions/2.1.268":                 "/Users/u/.local/share/claude/versions",
+		"/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js":     "/opt/homebrew/lib/node_modules",
+		"/home/u/.npm-global/lib/node_modules/pi/node_modules/x/bin/pi": "/home/u/.npm-global/lib/node_modules",
+		"/usr/local/bin/tool": "/usr/local/bin",
+	}
+	for in, want := range cases {
+		if got := InstallRoot(in); got != want {
+			t.Errorf("InstallRoot(%s) = %s, want %s", in, got, want)
+		}
+	}
+}
+
 func TestFindRealBinarySkipsShimDir(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip()

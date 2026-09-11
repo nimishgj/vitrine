@@ -50,6 +50,7 @@ type Deps struct {
 type Request struct {
 	Profile    profile.Profile
 	RealBinary string
+	BinaryRoot string // install tree of RealBinary, made readable inside the sandbox
 	Args       []string
 	Workdir    string
 	Grant      grants.Grant // already matched and honoured by the caller
@@ -137,6 +138,9 @@ func Run(ctx context.Context, d Deps, r Request) (int, error) {
 	} else {
 		ro = append(ro, r.Grant.Path)
 	}
+	if r.BinaryRoot != "" {
+		ro = append(ro, r.BinaryRoot)
+	}
 	spec := sandbox.BuildSpec(sandbox.BuildInput{
 		Roots:       sandbox.ExistingRoots(sandbox.SystemRoots(d.GOOS, d.Config.SystemRoots)),
 		ReadGrants:  ro,
@@ -151,7 +155,7 @@ func Run(ctx context.Context, d Deps, r Request) (int, error) {
 	// Audit start.
 	started := d.Now()
 	if _, err := d.Log.Append(audit.TypeSessionStart, map[string]any{
-		"session": id, "agent": r.Profile.Name, "binary": r.RealBinary, "cwd": r.Workdir,
+		"session": id, "agent": r.Profile.Name, "binary": r.RealBinary, "binary_root": r.BinaryRoot, "cwd": r.Workdir,
 		"grant_path": r.Grant.Path, "grant_mode": string(r.Grant.Mode),
 		"identities": identities, "backend": d.Backend.Name(),
 	}); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -108,6 +109,19 @@ func runSessionCmd(e *env, profileName, explicitBinary string, args []string) (i
 	if err != nil {
 		return 1, err
 	}
+	// Exec the real file, not a symlink the sandbox may not be able to read,
+	// and make the agent's install tree readable. When that tree is under
+	// the engineer's home (a common install location), the macOS user
+	// boundary needs an ACL for it too.
+	if real, err := filepath.EvalSymlinks(binary); err == nil {
+		binary = real
+	}
+	binRoot := profile.InstallRoot(binary)
+	if e.GOOS == "darwin" && strings.HasPrefix(binRoot, e.Home+string(filepath.Separator)) {
+		if err := grants.ApplyACL(grants.Grant{Path: binRoot, Mode: grants.ModeRead}, e.Home, e.Engineer); err != nil {
+			return 1, fmt.Errorf("make agent install readable by the sandbox user: %w", err)
+		}
+	}
 
 	// Grant for cwd.
 	cwd, err := grants.Canonical(e.Workdir)
@@ -143,7 +157,7 @@ func runSessionCmd(e *env, profileName, explicitBinary string, args []string) (i
 		AgentHome: agentHome,
 	}
 	return session.Run(context.Background(), deps, session.Request{
-		Profile: prof, RealBinary: binary, Args: args, Workdir: cwd, Grant: g,
+		Profile: prof, RealBinary: binary, BinaryRoot: binRoot, Args: args, Workdir: cwd, Grant: g,
 	})
 }
 

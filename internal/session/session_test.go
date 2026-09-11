@@ -76,7 +76,7 @@ func TestRunHappyPath(t *testing.T) {
 	os.MkdirAll(repo, 0o755)
 	p, _ := profile.Lookup("claude", nil)
 	code, err := Run(context.Background(), d, Request{
-		Profile: p, RealBinary: "/opt/claude", Args: []string{"--foo"}, Workdir: repo,
+		Profile: p, RealBinary: "/opt/claude", BinaryRoot: "/opt", Args: []string{"--foo"}, Workdir: repo,
 		Grant: grants.Grant{Path: repo, Mode: grants.ModeWrite},
 	})
 	if err != nil || code != 3 {
@@ -95,6 +95,9 @@ func TestRunHappyPath(t *testing.T) {
 	if !has(s.ReadWrite, repo) || !has(s.Deny, filepath.Join(repo, ".git", "hooks")) {
 		t.Fatalf("grants not applied: %+v", s)
 	}
+	if !has(s.ReadOnly, "/opt") {
+		t.Fatalf("binary root must be readable: %+v", s.ReadOnly)
+	}
 	if len(cleaned) != 1 {
 		t.Fatal("provider cleanup not called")
 	}
@@ -112,7 +115,7 @@ func TestRunHappyPath(t *testing.T) {
 		t.Fatalf("events %+v", evs)
 	}
 	start := evs[0].Data
-	if start["session"] != "sess1" || start["agent"] != "claude" || start["grant_mode"] != "write" {
+	if start["session"] != "sess1" || start["agent"] != "claude" || start["grant_mode"] != "write" || start["binary_root"] != "/opt" {
 		t.Fatalf("start data %+v", start)
 	}
 	ids := start["identities"].(map[string]any)
