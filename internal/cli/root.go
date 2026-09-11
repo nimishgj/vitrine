@@ -37,7 +37,7 @@ func newRoot(e *env) *cobra.Command {
 	root.AddCommand(newRunCmd(e))
 	root.AddCommand(newGrantCmd(e), newRevokeCmd(e), newGrantsCmd(e))
 	root.AddCommand(newTargetCmd(e))
-	root.AddCommand(newStatusCmd(e), newAuditCmd(e))
+	root.AddCommand(newStatusCmd(e), newAuditCmd(e), newDoctorCmd(e))
 	root.AddCommand(newProbeCmd())
 	root.AddCommand(platformCommands()...)
 	return root
