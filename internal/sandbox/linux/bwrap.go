@@ -14,7 +14,10 @@ func Args(spec sandbox.Spec, engineerHome string, seccompFD int) []string {
 	a := []string{
 		"--unshare-pid", "--unshare-ipc", "--unshare-uts", "--die-with-parent",
 		"--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
-		"--tmpfs", engineerHome,
+		// The engineer's home exists only as an empty, traverse-only tmpfs
+		// so bind mounts under it resolve. 0111 stops listing it, and the
+		// --remount-ro at the end stops writes into the skeleton.
+		"--perms", "0111", "--tmpfs", engineerHome,
 	}
 	for _, p := range spec.ReadOnly {
 		a = append(a, "--ro-bind-try", p, p)
@@ -27,6 +30,8 @@ func Args(spec sandbox.Spec, engineerHome string, seccompFD int) []string {
 		// tolerates repos without .git/hooks. Writes then fail with EROFS.
 		a = append(a, "--ro-bind-try", p, p)
 	}
+	// Binds are separate mounts and keep their own write access.
+	a = append(a, "--remount-ro", engineerHome)
 	a = append(a, "--clearenv")
 	for _, kv := range sandbox.EnvSlice(spec.Env) {
 		k, v, _ := strings.Cut(kv, "=")

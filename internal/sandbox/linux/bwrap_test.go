@@ -38,7 +38,7 @@ func TestArgsInvariants(t *testing.T) {
 	spec := sandbox.Spec{ReadWrite: []string{"/home/u/repo"}, Deny: []string{"/home/u/repo/.git/hooks"}, Home: "/h", Scratch: "/s", Workdir: "/home/u/repo", Env: map[string]string{}}
 	args := Args(spec, "/home/u", 3)
 	joined := strings.Join(args, " ")
-	for _, must := range []string{"--unshare-pid", "--unshare-ipc", "--unshare-uts", "--die-with-parent", "--clearenv", "--tmpfs /home/u", "--bind /home/u/repo /home/u/repo", "--ro-bind-try /home/u/repo/.git/hooks /home/u/repo/.git/hooks", "--seccomp 3", "--chdir /home/u/repo"} {
+	for _, must := range []string{"--unshare-pid", "--unshare-ipc", "--unshare-uts", "--die-with-parent", "--clearenv", "--perms 0111 --tmpfs /home/u", "--bind /home/u/repo /home/u/repo", "--ro-bind-try /home/u/repo/.git/hooks /home/u/repo/.git/hooks", "--remount-ro /home/u", "--seccomp 3", "--chdir /home/u/repo"} {
 		if !strings.Contains(joined, must) {
 			t.Errorf("missing %q in %s", must, joined)
 		}
@@ -51,5 +51,12 @@ func TestArgsInvariants(t *testing.T) {
 	di := strings.Index(joined, "--ro-bind-try /home/u/repo/.git/hooks")
 	if di < bi {
 		t.Error("deny must follow the write bind")
+	}
+	// The home remount must come after every bind (so the skeleton exists)
+	// and before the environment, which follows all mounts.
+	ri := strings.Index(joined, "--remount-ro /home/u")
+	ci := strings.Index(joined, "--clearenv")
+	if ri < di || ri > ci {
+		t.Error("--remount-ro must follow the last bind and precede --clearenv")
 	}
 }

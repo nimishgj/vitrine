@@ -8,6 +8,8 @@
 /dev
 --tmpfs
 /tmp
+--perms
+0111
 --tmpfs
 /home/u
 --ro-bind-try
@@ -37,6 +39,8 @@
 --ro-bind-try
 /home/u/repo/.git/hooks
 /home/u/repo/.git/hooks
+--remount-ro
+/home/u
 --clearenv
 --setenv
 HOME
