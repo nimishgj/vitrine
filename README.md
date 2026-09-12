@@ -21,7 +21,7 @@ export PATH="$HOME/.vitrine/bin:$PATH"
 vitrine doctor
 ```
 
-`vitrine doctor` runs a probe inside the sandbox and shows what was denied and what was allowed.
+`vitrine doctor` runs a probe inside the sandbox and shows what was denied and what was allowed. Every row should read `ok`.
 
 ## Use
 
@@ -33,6 +33,22 @@ vitrine audit           # what happened
 vitrine run -- ./my-agent --flag
 ```
 
+## Documentation
+
+- [How it works](docs/how-it-works.md): the shim, the session, what the sandbox contains, and the macOS and Linux backends.
+- [Security model](docs/security-model.md): what is guaranteed, what a write grant really means, tamper evidence, and the known limits of this version.
+- [Grants and the audit log](docs/grants-and-audit.md): grant matching, the first-run prompt, refused paths, the audit chain, and tamper detection.
+- [Command reference](docs/commands.md): every command, file, and configuration key.
+- [Platforms](docs/platforms.md): setup, prerequisites, and uninstall for macOS and Linux.
+
 ## Status
 
-Early. Local filesystem isolation works on macOS and Linux. Kubernetes and ClickHouse read-only identities are next.
+Early. Local filesystem isolation works on macOS and Linux. Kubernetes and ClickHouse read-only identities are next, followed by Postgres and AWS, an opt-in container backend, and managed enforcement.
+
+## Development
+
+```sh
+make test          # unit tests
+make integration   # real sandboxes; see docs/platforms.md for prerequisites
+make build
+```
