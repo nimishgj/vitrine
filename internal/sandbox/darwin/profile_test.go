@@ -60,8 +60,9 @@ func TestProfileInvariants(t *testing.T) {
 	if !strings.Contains(p, "(allow network*)") || !strings.Contains(p, "(allow process-exec*") {
 		t.Fatal("process/network rules")
 	}
-	// Process startup aborts without these two (libSystem init).
-	for _, must := range []string{`(allow file-read-data (literal "/"))`, `(literal "/dev/dtracehelper")`} {
+	// Process startup aborts without the first two (libSystem init); agents
+	// hardcode /tmp paths so shared temp must be writable.
+	for _, must := range []string{`(allow file-read-data (literal "/"))`, `(literal "/dev/dtracehelper")`, `file-write* (subpath "/private/tmp")`} {
 		if !strings.Contains(p, must) {
 			t.Fatalf("missing startup rule %s", must)
 		}

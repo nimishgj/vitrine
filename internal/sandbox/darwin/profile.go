@@ -50,6 +50,11 @@ func Profile(spec sandbox.Spec) string {
 	b.WriteString("(allow file-read-data (literal \"/\"))\n")
 	b.WriteString("(allow file-read* file-write* file-ioctl (literal \"/dev/dtracehelper\"))\n")
 	b.WriteString("(allow file-ioctl (literal \"/dev/tty\"))\n")
+	// Shared temp locations. Agents hardcode /tmp/<name>-<uid> regardless of
+	// TMPDIR, and macOS creates a per-user tree under /var/folders. Both are
+	// protected by ordinary per-user permissions, so the engineer's own temp
+	// files stay unreadable. Linux gets the same via a private tmpfs /tmp.
+	b.WriteString("(allow file-read* file-write* (subpath \"/private/tmp\") (subpath \"/private/var/folders\"))\n")
 	b.WriteString("(allow file-read* file-write* (literal \"/dev/null\") (literal \"/dev/tty\") (regex #\"^/dev/ttys[0-9]+$\"))\n")
 	b.WriteString("(allow ipc-posix-shm)\n(allow mach-lookup\n")
 	for _, s := range MachServices() {
