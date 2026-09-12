@@ -3,6 +3,7 @@ package darwin
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -22,6 +23,9 @@ func sampleSpec() sandbox.Spec {
 }
 
 func TestProfileGolden(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("golden reflects macOS symlink layout (/var -> /private/var)")
+	}
 	got := Profile(sampleSpec())
 	golden := filepath.Join("..", "testdata", "seatbelt.golden")
 	if os.Getenv("UPDATE_GOLDEN") == "1" {
