@@ -101,10 +101,13 @@ func Ensure(vitrineBin string, engineers []string) error {
 	if err := os.Chmod(Home, 0o711); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(SessionsDir(), 0o1777); err != nil {
+	// Like /tmp: anyone may create a session directory, only the owner may
+	// remove it. The sticky bit must be given as os.ModeSticky; os.Chmod
+	// ignores the raw 01000 bit.
+	if err := os.MkdirAll(SessionsDir(), 0o777|os.ModeSticky); err != nil {
 		return err
 	}
-	if err := os.Chmod(SessionsDir(), 0o1777); err != nil {
+	if err := os.Chmod(SessionsDir(), 0o777|os.ModeSticky); err != nil {
 		return err
 	}
 	gitcfg := filepath.Join(Home, ".gitconfig")
