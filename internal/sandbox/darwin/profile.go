@@ -49,7 +49,9 @@ func Profile(spec sandbox.Spec) string {
 	// during libSystem initialisation; without these it aborts before main.
 	b.WriteString("(allow file-read-data (literal \"/\"))\n")
 	b.WriteString("(allow file-read* file-write* file-ioctl (literal \"/dev/dtracehelper\"))\n")
-	b.WriteString("(allow file-ioctl (literal \"/dev/tty\"))\n")
+	// Interactive agents put the terminal into raw mode and query its size
+	// (TIOCSETA, TIOCGWINSZ) on the pty device itself, not on /dev/tty.
+	b.WriteString("(allow file-ioctl (literal \"/dev/tty\") (regex #\"^/dev/ttys[0-9]+$\"))\n")
 	// Shared temp locations. Agents hardcode /tmp/<name>-<uid> regardless of
 	// TMPDIR, and macOS creates a per-user tree under /var/folders. Both are
 	// protected by ordinary per-user permissions, so the engineer's own temp

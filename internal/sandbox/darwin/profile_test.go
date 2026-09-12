@@ -62,7 +62,7 @@ func TestProfileInvariants(t *testing.T) {
 	}
 	// Process startup aborts without the first two (libSystem init); agents
 	// hardcode /tmp paths so shared temp must be writable.
-	for _, must := range []string{`(allow file-read-data (literal "/"))`, `(literal "/dev/dtracehelper")`, `file-write* (subpath "/private/tmp")`} {
+	for _, must := range []string{`(allow file-read-data (literal "/"))`, `(literal "/dev/dtracehelper")`, `file-write* (subpath "/private/tmp")`, `(allow file-ioctl (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`} {
 		if !strings.Contains(p, must) {
 			t.Fatalf("missing startup rule %s", must)
 		}
